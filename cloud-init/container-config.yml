@@ -1,0 +1,13 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+package_reboot_if_required: true
+packages:
+  - net-tools
+  - openconnect
+  - openfortivpn
+runcmd:
+  - sudo ln -s /opt/openfortivpn/openforti-connect.sh /usr/local/bin/openforti-connect
+  - sudo ln -s /opt/nat/nat-init.sh /usr/local/bin/nat-init
+
+final_message: "VPN container successfully initialized in $UPTIME seconds"
