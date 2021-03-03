@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 
+CONTAINER_NAME=${1:-vpn}
+
+# if you are entcountering the following timeout issue
 # https://github.com/canonical/multipass/issues/1039
-#multipass launch -vvvv --disk 3G --mem 256M --name $1 --cloud-init cloud-init/container-config.yml &&
-multipass launch -vvvv --disk 3G --mem 256M --name $1 &&
-multipass mount $(pwd)/scripts $1:/opt &&
-multipass mount $(pwd)/cloud-init $1:/etc/cloud-init
+# you may launch without the cloud-init part and use the init script after launch
+
+#multipass launch -vvvv --disk 3G --mem 512M --name $CONTAINER_NAME
+#multipass exec $CONTAINER_NAME /opt/init/init.sh
+
+multipass launch -vvvv --disk 3G --mem 1G --name $CONTAINER_NAME --cloud-init container-config.yml
+multipass mount $(pwd)/scripts $CONTAINER_NAME:/opt
+multipass mount $(pwd)/config $CONTAINER_NAME:/home/ubuntu/.config

@@ -7,7 +7,7 @@ packages:
   - openconnect
   - openfortivpn
 runcmd:
-  - sudo ln -s /opt/openfortivpn/openforti-connect.sh /usr/local/bin/openforti-connect
+  - sudo ln -s /opt/openfortivpn/openforti.sh /usr/local/bin/openforti
   - sudo ln -s /opt/nat/nat-init.sh /usr/local/bin/nat-init
 
 final_message: "VPN container successfully initialized in $UPTIME seconds"
