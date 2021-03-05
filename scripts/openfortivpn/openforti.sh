@@ -35,9 +35,9 @@ function establish_connection() {
 }
 
 function second_factor() {
-  echo ""
+  echo
   echo "You may now have to check your second authentication factor"
-  echo ""
+  echo
   sleep 15;
 }
 
@@ -62,28 +62,28 @@ function flush_dns () {
 function connect(){
   echo "$(date)"
   shutdown
-  echo ""
+  echo
   echo "########################################"
-  echo "      Establishing new connection"
+  echo "    Establishing new VPN connection"
   echo "########################################"
-  echo ""
+  echo
   write_connection_config
   read_password
   establish_connection
   second_factor
   configure_nat
-  echo ""
-  echo ""
-  echo ""
+  echo
+  echo
+  echo
 }
 
 function shutdown() {
-  echo ""
-  echo ""
+  echo
+  echo
   echo "########################################"
-  echo "   Shutting down existing connection"
+  echo " Shutting down existing VPN connection"
   echo "########################################"
-  echo ""
+  echo
   close_connection
 	flush_dns
 }
