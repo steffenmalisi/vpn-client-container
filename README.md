@@ -2,7 +2,7 @@
 
 Route your VPN traffic from your host through a container.
 
-# Prerequesites
+# Prerequisites
 
 ## Install Multipass
 [Multipass](https://multipass.run/) orchestrates virtual Ubuntu instances.
