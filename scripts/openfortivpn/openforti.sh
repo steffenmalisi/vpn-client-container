@@ -4,25 +4,25 @@
 
 VERBOSE=false
 while getopts ':v' option; do
-	case "$option" in
+  case "$option" in
     v) VERBOSE=true ;;
-	esac
+  esac
 done
 
 function write_connection_config() {
-	sudo mkdir -p /etc/ppp/peers
-	sudo bash -c "echo $CONNECT_CONFIG > /etc/ppp/peers/$CONNECTION_NAME"
+  sudo mkdir -p /etc/ppp/peers
+  sudo bash -c "echo $CONNECT_CONFIG > /etc/ppp/peers/$CONNECTION_NAME"
 }
 
 function read_password() {
-	case $PASSWORD in
-		viastdin)
-			read -s -p "Enter VPN password for ${USERNAME}: " PASSWORD
-			;;
-		*)
-			echo "You are storing your password in the config file. You should only do this for testing purposes"
-			;;
-	esac
+  case $PASSWORD in
+    viastdin)
+      read -s -p "Enter VPN password for ${USERNAME}: " PASSWORD
+      ;;
+    *)
+      echo "You are storing your password in the config file. You should only do this for testing purposes"
+      ;;
+  esac
 }
 
 function establish_connection() {
@@ -49,8 +49,8 @@ function configure_nat(){
 
 function close_connection() {
   echo "Closing openforti connection"
-	sudo pkill -SIGINT openfortivpn
-	sleep 3;
+  sudo pkill -SIGINT openfortivpn
+  sleep 3;
   echo "...done"
 }
 
