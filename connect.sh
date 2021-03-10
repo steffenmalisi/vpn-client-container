@@ -3,9 +3,15 @@
 . config/.net.cfg
 
 CONTAINER_NAME=${1:-vpn}
-CONTAINER_STATE=$(multipass info $CONTAINER_NAME | grep State | awk '{print $2}')
+CONTAINER_INFO=$(multipass info $CONTAINER_NAME 2>/dev/null || echo "State: NA")
+CONTAINER_STATE=$(echo "$CONTAINER_INFO" | grep State | awk '{print $2}')
 
 case $CONTAINER_STATE in
+  NA)
+    echo "The container $CONTAINER_NAME is not available on your system."
+    echo "Did you successfully run the installer script?"
+    exit 1
+    ;;
 	Stopped)
     echo "Starting multipass container"
     multipass start $CONTAINER_NAME
