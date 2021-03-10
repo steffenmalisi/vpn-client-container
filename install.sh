@@ -9,7 +9,7 @@ CONTAINER_NAME=${1:-vpn}
 #multipass launch -vvvv --disk 3G --mem 512M --name $CONTAINER_NAME
 #multipass exec $CONTAINER_NAME /opt/init/init.sh
 
-if ! type "multipass2" >/dev/null 2>&1; then
+if ! type "multipass" >/dev/null 2>&1; then
   echo "Multipass is not available on your system."
   if [[ "$OSTYPE" =~ ^darwin ]]; then
     echo "You can install it using 'brew install multipass'"
