@@ -1,2 +1,3 @@
-config/.net.cfg
-config/.openforti.cfg
+*.cfg
+*.log
+*.bak
