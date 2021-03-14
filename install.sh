@@ -18,5 +18,6 @@ if ! type "multipass" >/dev/null 2>&1; then
 fi
 
 multipass launch -vvvv --disk 3G --mem 1G --name $CONTAINER_NAME --cloud-init container-config.yml
+multipass restart $CONTAINER_NAME
 multipass mount $(pwd)/scripts $CONTAINER_NAME:/opt
 multipass mount $(pwd)/config $CONTAINER_NAME:/home/ubuntu/.config
