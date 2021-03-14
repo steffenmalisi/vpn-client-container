@@ -4,10 +4,27 @@ package_upgrade: true
 package_reboot_if_required: true
 packages:
   - net-tools
-  - openconnect
   - openfortivpn
+  - dnsmasq
 runcmd:
+  - ifconfig > /home/ubuntu/start_if
+  - cat /etc/resolv.conf > /home/ubuntu/start_resolv
   - sudo ln -s /opt/openfortivpn/openforti.sh /usr/local/bin/openforti
   - sudo ln -s /opt/nat/nat-init.sh /usr/local/bin/nat-init
+  - sudo rm /etc/ppp/ip-up.d/*
+  - sudo rm /etc/ppp/ip-down.d/*
+  - sudo ln -s /opt/ppp/ip-up.d/0000usepeerdns.sh /etc/ppp/ip-up.d/0000usepeerdns
+  - sudo ln -s /opt/ppp/ip-down.d/0000usepeerdns.sh /etc/ppp/ip-down.d/0000usepeerdns
+  #- echo "DNSStubListener=no" | sudo tee -a /etc/systemd/resolved.conf
+  #- sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+  - sudo systemctl disable systemd-resolved.service
+  - sudo systemctl stop systemd-resolved
+  - DNS1=$(grep -E '^nameserver ' /etc/resolv.conf | head -1 | awk '{print $2}') && echo "server=192.168.64.1" | sudo tee /etc/dnsmasq.d/server.conf
+  - sudo rm /etc/resolv.conf
+  - echo "nameserver 127.0.0.1" | sudo tee /etc/resolv.conf
+  - IPv4=$(ifconfig enp0s2 | grep -E 'inet ' | awk '{print $2}') && printf "listen-address=127.0.0.1\nlisten-address=$IPv4\n" | sudo tee -a /etc/dnsmasq.conf
+  - echo "conf-dir=/etc/dnsmasq.d/,*.conf" | sudo tee -a /etc/dnsmasq.conf
+  - echo "no-resolv" | sudo tee -a /etc/dnsmasq.conf
+  - sudo systemctl restart dnsmasq
 
 final_message: "VPN container successfully initialized in $UPTIME seconds"
