@@ -28,9 +28,9 @@ function read_password() {
 function establish_connection() {
   echo "Establishing openforti connection for ${USERNAME} to ${VPN_GW}"
   if [ "$VERBOSE" = "true" ]; then
-    echo $PASSWORD | sudo openfortivpn "${VPN_GW}" -u "${USERNAME}" --trusted-cert "${GWCERT_HASH}" --pppd-use-peerdns=1 --pppd-call="${CONNECTION_NAME}" --pppd-log "${LOG_FILE}" -vvv >> $LOG_FILE 2>&1 &
+    echo $PASSWORD | sudo openfortivpn "${VPN_GW}" -u "${USERNAME}" --trusted-cert "${GWCERT_HASH}" --no-dns --pppd-call="${CONNECTION_NAME}" --pppd-log "${LOG_FILE}" -vvv >> $LOG_FILE 2>&1 &
   else
-    echo $PASSWORD | sudo openfortivpn "${VPN_GW}" -u "${USERNAME}" --trusted-cert "${GWCERT_HASH}" --pppd-use-peerdns=1 --pppd-call="${CONNECTION_NAME}" >> $LOG_FILE 2>&1 &
+    echo $PASSWORD | sudo openfortivpn "${VPN_GW}" -u "${USERNAME}" --trusted-cert "${GWCERT_HASH}" --no-dns --pppd-call="${CONNECTION_NAME}" >> $LOG_FILE 2>&1 &
   fi
 }
 
@@ -56,6 +56,7 @@ function close_connection() {
 
 function flush_dns () {
   echo "Flushing DNS"
+  sudo systemctl restart dnsmasq
   echo "...done"
 }
 
@@ -91,6 +92,13 @@ function shutdown() {
 trap "shutdown 2>&1 | tee -a $LOG_FILE && exit;" SIGINT SIGTERM
 
 echo "Log file: $LOG_FILE"
-connect 2>&1 | tee $LOG_FILE
 
-tail -f $LOG_FILE
+case "$1" in
+  stop)
+    shutdown 2>&1 | tee -a $LOG_FILE && exit; ;;
+  logs)
+    tail -f $LOG_FILE;;
+  *)
+    connect 2>&1 | tee $LOG_FILE ;;
+esac
+
