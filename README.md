@@ -13,16 +13,42 @@ You need to have `multipass` installed on the command line.
 
 For Mac you can install it with `brew install multipass`
 
-# Installation
+## (On a Mac) Install coreutils
+
+The connect script needs `gsed` and `greadlink` to be available as binaries from your Terminal.
+
+You can install them with
+```bash
+brew install gsed
+brew install coreutils
+```
+
+# Install
 
 ## 1. Provide your VPN configuration
 
 You need to provide two files within the `config` folder
 
 ### 1.1 .net.cfg
-Place a file named `.net.cfg` into the `config` folder. This file contains the CIDRs of your VPN. It is used to route traffic for these CIDRs through the container.
+Place a file named `.net.cfg` into the `config` folder. You have the following configuration options of your network:
 ```bash
-VPN_NETMASKS=(10.0.0.0/16 10.1.0.0/16)
+# VPN_NETMASKS (mandatory) contains the CIDRs of your VPN. It is used to route traffic for these CIDRs through the container
+VPN_NETMASKS=(
+  10.0.0.0/16
+  10.1.0.0/16
+)
+
+# VPN_DOMAINS (mandatory, optional if using the -d option of the connect script). This variable is used to route DNS queries for these domains to your VPN
+VPN_DOMAINS=(
+  vpn-domain.de
+  internal.company.com
+)
+
+# VPN_HOSTS (optional, mandatory if using the -a option of the connect script). The VPN Hosts are used to update your /etc/hosts file.
+VPN_HOSTS=(
+  any-host.of.mycompany.com
+  vpnhost.vpn-domain.de
+)
 ```
 
 ### 1.2 .openforti.cfg
@@ -46,9 +72,16 @@ git clone https://github.com/steffenmalisi/vpn-client-container.git
 cd vpn-client-container
 ./install.sh
 ```
+
 The script does:
-- launch a multipass container with a cloud config provided by `container-config.yml`
+- launch a multipass container with a cloud config provided in `container-config.yml`
 - mount the `scripts` and `config` folder into the launched container
+
+If you previously ran this script, it is a good idea to clean up first:
+```bash
+multipass delete vpn
+multipass purge
+```
 
 # Connect to your VPN
 
@@ -58,17 +91,60 @@ To connect to your VPN, run:
 ./connect.sh
 ```
 
+Available options:
+```
+./connect.sh -h
+
+Usage: ./connect.sh [options] [container_name]
+
+Options:
+-a      Add hosts from config/.net.cfg to your /etc/hosts/file
+        This can be used as an alternative to changing host's DNS configuration
+-d      Disable changing host's DNS configuration
+        Your host will not be able to resolve DNS names from your VPN
+        See also option -a
+-h      Display this help
+-i      Specify the interface of your host which will be used for DNS settings
+        On your Mac you can find the correct name using 'networksetup -listallnetworkservices'
+        By default this script finds out the correct interface automatically
+        To override this behaviour use this option
+-s      Shutdown container after VPN connection is shut down
+        The default is that the container itself keeps running
+        to have a faster startup for the next connect command
+```
+
 The script does:
-- Modify your routing table on the host so that traffic for your VPN is routed through the container
 - Runs the openforti command within the container to connect to your VPN
+- Modify your routing table on the host so that traffic for your VPN is routed through the container
+- Modify your host's primary DNS server to point to the VPN container (can be disabled with -d)
+- Optionally add hosts to your host's /etc/hosts :-). Can be activated with the -a option. Host hosts host
+- Add a route to the container so that the local container network still is able to connect to your host
+- Adds your initial host primary DNS as primary DNS for the container (can be disabled with -d)
 - Keeps the connection open until interrupted with CTRL+C
-- When interrupted it closes the connection, reverts your host config and stops the container
+- When interrupted it closes the connection and reverts all of the config changes made
+- Optionally stops the container when option -s is given
+
+# Uninstall
+To uninstall the container just run
+```bash
+multipass delete vpn && multipass purge
+```
+
+# Q&A
+
+## Q: I do not want my /etc/hosts or Host DNS to be changed by the script
+A: Run it with ./connect -d and manually place your hosts into `/etc/hosts`. To get the IP Address for a host you can run `multipass exec vpn nslookup <hostname>`
+
+## Q: What if the script is not able to clean up as expected
+A: For all the changes on the host backup files are created. If anything goes wrong you can manually revert the changes.
+
+Backup-Files:
+- ./macos_dns.conf.bak: Contains initial host DNS information for the selected interface. You can manually restore by running `networksetup -setdnsservers "$HOST_INTERFACE" $(cat macos_dns.conf.bak)`
+- /etc/hosts.bak: This is a copy of the initial /etc/hosts file. Revert to it with `mv -f "/etc/hosts.bak" "/etc/hosts"`
+
+For problems with the container, just delete and reinstall it. See Install procedure.
 
 # Known issues (PRs welcome)
-
-## DNS resolution on the host
-Currently DNS resolution is not supported. To be able to resolve DNS names from your host, you have to edit your `/etc/hosts`
-To get the IP Address for a host to add it to `/etc/hosts` you can run `multipass exec vpn nslookup <hostname>`
 
 ## Support for multiple Host OSs
 Currently the scripts are only tested on MacOS, but should also run on any other UNIX based OS.

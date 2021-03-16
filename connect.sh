@@ -6,7 +6,7 @@ USAGE="
 Usage: $0 [options] [container_name]
 
 Options:
--a      Add hosts from config/.hosts.cfg to your /etc/hosts/file
+-a      Add hosts from config/.net.cfg to your /etc/hosts/file
         This can be used as an alternative to changing host's DNS configuration
 -d      Disable changing host's DNS configuration
         Your host will not be able to resolve DNS names from your VPN
@@ -14,6 +14,8 @@ Options:
 -h      Display this help
 -i      Specify the interface of your host which will be used for DNS settings
         On your Mac you can find the correct name using 'networksetup -listallnetworkservices'
+        By default this script finds out the correct interface automatically
+        To override this behaviour use this option
 -s      Shutdown container after VPN connection is shut down
         The default is that the container itself keeps running
         to have a faster startup for the next connect command
@@ -201,7 +203,7 @@ function add_hosts() {
   # backup the old hosts file
   sudo cp -a "$REALETCHOSTS" "$REALETCHOSTS.bak"
 
-  for host in ${HOSTS[@]}
+  for host in ${VPN_HOSTS[@]}
   do
     echo "Check for host $host"
     if ! grep -q "$host" $REALETCHOSTS; then
