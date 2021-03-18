@@ -48,12 +48,67 @@ while getopts ':adhi:s' option; do
 done
 shift $((OPTIND - 1))
 
-if [[ "$(whoami)" != "root" ]]; then
-	echo "This script requires to be run as root"
-	echo "It modifies the routing table of your host and changes your DNS nameserver entry"
-	echo "Please use sudo connect.sh"
-	exit 1
-fi
+
+function check_prerequisites() {
+  # script was run as root
+  if [[ "$(whoami)" != "root" ]]; then
+    echo "This script requires to be run as root"
+    echo "It modifies the routing table of your host and changes your DNS nameserver entry"
+    echo "Please use sudo connect.sh"
+    exit 1
+  fi
+
+  # multipass has to be installed
+  if ! type "multipass" >/dev/null 2>&1; then
+    echo "Multipass is not available on your system."
+    if [[ "$OSTYPE" =~ ^darwin ]]; then
+      echo "You can install it using 'brew install multipass'"
+    fi
+    exit 1;
+  fi
+
+  # gsed has to be installed
+  if ! type "gsed" >/dev/null 2>&1; then
+    echo "gsed is not available on your system."
+    if [[ "$OSTYPE" =~ ^darwin ]]; then
+      echo "You can install it using 'brew install gsed'"
+    fi
+    exit 1;
+  fi
+
+  # greadlink has to be installed
+  if ! type "greadlink" >/dev/null 2>&1; then
+    echo "greadlink is not available on your system."
+    if [[ "$OSTYPE" =~ ^darwin ]]; then
+      echo "You can install it using 'brew install coreutils'"
+    fi
+    exit 1;
+  fi
+
+  # VPN_NETMASKS variable has to be present
+  if [ -z "$VPN_NETMASKS" ]; then
+    echo "Please configure VPN_NETMASKS in ./config/.net.cfg"
+    exit 1;
+  fi
+
+  # VPN_DOMAINS variable has to be present when DISABLE_HOST_DNS is false
+  if [ "$DISABLE_HOST_DNS" = "false" ]; then
+    if [ -z "$VPN_DOMAINS" ]; then
+      echo "Please configure VPN_DOMAINS in ./config/.net.cfg"
+      exit 1;
+    fi
+  fi
+
+  # VPN_HOSTS has to be present when ADD_HOSTS is true
+  if [ "$ADD_HOSTS" = "true" ]; then
+    if [ -z "$VPN_HOSTS" ]; then
+      echo "Please configure VPN_HOSTS in ./config/.net.cfg"
+      exit 1;
+    fi
+  fi
+}
+
+check_prerequisites
 
 CONTAINER_NAME=${1:-vpn}
 CONTAINER_INFO=$(multipass info $CONTAINER_NAME 2>/dev/null || echo "State: NA")
@@ -95,13 +150,13 @@ case $CONTAINER_STATE in
     echo "Did you successfully run the installer script?"
     exit 1
     ;;
-	Stopped)
+  Stopped)
     echo "Starting multipass container"
     multipass start $CONTAINER_NAME
     echo "...done"
-		;;
-	*)
-		;;
+    ;;
+  *)
+    ;;
 esac
 
 CONTAINER_IP=$(multipass info $CONTAINER_NAME | grep IPv4 | awk '{print $2}')
