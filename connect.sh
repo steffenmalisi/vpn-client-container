@@ -194,10 +194,13 @@ function add_macos_host_dns(){
   echo
   echo "Setting the container IP $CONTAINER_IP as the primary DNS server for the host"
   echo
-  # backing up the current setting
+  # backup the current setting
   networksetup -getdnsservers Wi-Fi | gsed -r "s/There aren't any DNS Servers set.*/empty/g" > macos_dns.conf.bak
-  # setting the nameserver
+  # set the nameserver
   networksetup -setdnsservers "$HOST_INTERFACE" $CONTAINER_IP
+  # flush DNS
+  dscacheutil -flushcache
+  killall -HUP mDNSResponder
   echo "...done"
 }
 
@@ -210,6 +213,9 @@ function remove_macos_host_dns(){
   echo "Rolling back the host DNS configuration to previous state"
   echo
   networksetup -setdnsservers "$HOST_INTERFACE" $(cat macos_dns.conf.bak) && rm macos_dns.conf.bak
+  # flush DNS
+  dscacheutil -flushcache
+  killall -HUP mDNSResponder
   echo "...done"
 }
 
