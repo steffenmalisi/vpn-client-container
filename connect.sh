@@ -21,6 +21,10 @@ Options:
         to have a faster startup for the next connect command
 "
 
+# ************************************* GET OPTIONS *****************************************
+
+CONNECT_SYNC_FILE=".connect"
+MACOS_DNS_BACKUP_FILE="macos_dns.conf.bak"
 ADD_HOSTS=false
 SHUTDOWN_CONTAINER=false
 DISABLE_HOST_DNS=false
@@ -48,6 +52,7 @@ while getopts ':adhi:s' option; do
 done
 shift $((OPTIND - 1))
 
+# ************************************* PRE CHECKS ******************************************
 
 function check_prerequisites() {
   # script was run as root
@@ -108,18 +113,6 @@ function check_prerequisites() {
   fi
 }
 
-check_prerequisites
-
-CONTAINER_NAME=${1:-vpn}
-CONTAINER_INFO=$(multipass info $CONTAINER_NAME 2>/dev/null || echo "State: NA")
-CONTAINER_STATE=$(echo "$CONTAINER_INFO" | grep State | awk '{print $2}')
-# get real resolv.conf file of host
-REALRESOLVCONF=$(greadlink -f /etc/resolv.conf)
-# get real /etc/hosts file of host
-REALETCHOSTS=$(greadlink -f /etc/hosts)
-# get primary DNS server of host
-HOST_DNS1=$(grep -E '^nameserver ' /etc/resolv.conf | head -1 | awk '{print $2}')
-
 function check_macos_interface(){
   if [ "$DISABLE_HOST_DNS" = "false" ]; then
     if [ -z ${HOST_INTERFACE+x} ]; then
@@ -142,7 +135,21 @@ function check_macos_interface(){
   fi
 }
 
-check_macos_interface
+function pre_check(){
+  check_prerequisites
+  check_macos_interface
+}
+
+pre_check
+
+CONTAINER_NAME=${1:-vpn}
+CONTAINER_INFO=$(multipass info $CONTAINER_NAME 2>/dev/null || echo "State: NA")
+CONTAINER_STATE=$(echo "$CONTAINER_INFO" | grep State | awk '{print $2}')
+CONTAINER_IP=$(multipass info $CONTAINER_NAME | grep IPv4 | awk '{print $2}')
+# get real resolv.conf file of host
+REALRESOLVCONF=$(greadlink -f /etc/resolv.conf)
+# get real /etc/hosts file of host
+REALETCHOSTS=$(greadlink -f /etc/hosts)
 
 case $CONTAINER_STATE in
   NA)
@@ -158,9 +165,6 @@ case $CONTAINER_STATE in
   *)
     ;;
 esac
-
-CONTAINER_IP=$(multipass info $CONTAINER_NAME | grep IPv4 | awk '{print $2}')
-
 
 # ********************************* HOST CONFIGURATION **************************************
 
@@ -187,15 +191,12 @@ function remove_host_routes(){
 }
 
 function add_macos_host_dns(){
-  if [ "$DISABLE_HOST_DNS" = "true" ]; then
-    return 0
-  fi
-
   echo
   echo "Setting the container IP $CONTAINER_IP as the primary DNS server for the host"
   echo
   # backup the current setting
-  networksetup -getdnsservers Wi-Fi | gsed -r "s/There aren't any DNS Servers set.*/empty/g" > macos_dns.conf.bak
+  echo "$HOST_INTERFACE" > $MACOS_DNS_BACKUP_FILE
+  networksetup -getdnsservers Wi-Fi | gsed -r "s/There aren't any DNS Servers set.*/empty/g" >> $MACOS_DNS_BACKUP_FILE
   # set the nameserver
   networksetup -setdnsservers "$HOST_INTERFACE" $CONTAINER_IP
   # flush DNS
@@ -205,14 +206,10 @@ function add_macos_host_dns(){
 }
 
 function remove_macos_host_dns(){
-  if [ "$DISABLE_HOST_DNS" = "true" ]; then
-    return 0
-  fi
-
   echo
   echo "Rolling back the host DNS configuration to previous state"
   echo
-  networksetup -setdnsservers "$HOST_INTERFACE" $(cat macos_dns.conf.bak) && rm macos_dns.conf.bak
+  networksetup -setdnsservers $(cat $MACOS_DNS_BACKUP_FILE) && rm $MACOS_DNS_BACKUP_FILE
   # flush DNS
   dscacheutil -flushcache
   killall -HUP mDNSResponder
@@ -220,10 +217,6 @@ function remove_macos_host_dns(){
 }
 
 function add_host_dns(){
-  if [ "$DISABLE_HOST_DNS" = "true" ]; then
-    return 0
-  fi
-
   echo
   echo "Setting the container IP $CONTAINER_IP as the primary DNS server for the host"
   echo
@@ -241,10 +234,6 @@ function add_host_dns(){
 }
 
 function remove_host_dns(){
-  if [ "$DISABLE_HOST_DNS" = "true" ]; then
-    return 0
-  fi
-
   echo
   echo "Rolling back the host DNS configuration to previous state"
   echo
@@ -253,10 +242,6 @@ function remove_host_dns(){
 }
 
 function add_hosts() {
-  if [ "$ADD_HOSTS" = "false" ]; then
-    return 0
-  fi
-
   echo
   echo "Modifying your /etc/hosts. A backup will be created."
   echo
@@ -282,10 +267,6 @@ function add_hosts() {
 }
 
 function remove_hosts() {
-  if [ "$ADD_HOSTS" = "false" ]; then
-    return 0
-  fi
-
   echo
   echo "Rolling back /etc/hosts configuration to previous state"
   echo
@@ -312,9 +293,6 @@ function remove_container_routes(){
 }
 
 function add_container_dns(){
-  if [ "$DISABLE_HOST_DNS" = "true" ]; then
-    return 0
-  fi
   echo
   echo "Setting the host DNS $HOST_DNS1 as the primary DNS server for the container"
   echo
@@ -325,9 +303,6 @@ function add_container_dns(){
 }
 
 function remove_container_dns(){
-  if [ "$DISABLE_HOST_DNS" = "true" ]; then
-    return 0
-  fi
   echo
   echo "Rolling back the container DNS configuration to previous state"
   echo
@@ -346,31 +321,85 @@ function connect() {
   echo "           Let's connect"
   echo "########################################"
   echo
+  touch $CONNECT_SYNC_FILE
   multipass exec $CONTAINER_NAME openforti connect
   add_host_routes
-  add_macos_host_dns
-  add_hosts
-  add_container_routes
-  add_container_dns
+  if [ "$ADD_HOSTS" = "true" ]; then
+    add_hosts
+  fi
+  if [ "$DISABLE_HOST_DNS" = "false" ]; then
+    add_macos_host_dns
+    add_container_routes
+    add_container_dns
+  fi
+
   multipass exec $CONTAINER_NAME openforti logs
 }
 
 function shutdown() {
   remove_host_routes
-  remove_macos_host_dns
-  remove_hosts
-  remove_container_routes
-  remove_container_dns
+  if [ "$ADD_HOSTS" = "true" ]; then
+    remove_hosts
+  fi
+  if [ "$DISABLE_HOST_DNS" = "false" ]; then
+    remove_macos_host_dns
+    remove_container_routes
+    remove_container_dns
+  fi
   if [ "$SHUTDOWN_CONTAINER" = "true" ]; then
     multipass stop $CONTAINER_NAME
+  fi
+
+  rm -f $CONNECT_SYNC_FILE
+}
+
+function kill_other_instance_if_running(){
+  pid=$(ps -fe | grep '[b]ash ./connect.sh' | grep -v $$ | awk '{print $2}')
+  if [[ -n $pid ]]; then
+    echo "Another instance of this script is running. Will kill it's process"
+    child_pid=$(ps -e -o pid,ppid | awk '$2~/'$pid'/ {print $1}')
+    echo "Kill child process $child_pid"
+    kill -2 $child_pid
+    while ps -p "$pid"; do
+      echo "Waiting for process $pid to shutdown..."
+      sleep 5
+    done
+  fi
+}
+
+function check_previous_graceful_shutdown(){
+  if test -f $CONNECT_SYNC_FILE; then
+    echo "Seems like you did not gracefully shutdown this script. This can leave your DNS settings and therefore your internet connection broken"
+    echo "Please always exit the script with CTRL-C to that it can cleanup its resources"
+    kill_other_instance_if_running
+    remove_host_routes
+    if test -f $MACOS_DNS_BACKUP_FILE; then
+      remove_macos_host_dns
+      remove_container_routes
+      remove_container_dns
+    fi
+    if test -f "$REALRESOLVCONF.bak"; then
+      remove_host_dns
+      remove_container_routes
+      remove_container_dns
+    fi
+    if test -f "$REALETCHOSTS.bak"; then
+      remove_hosts
+    fi
   fi
 }
 
 trap "echo 'Terminated!' && exit;" SIGINT SIGTERM
 
+check_previous_graceful_shutdown
+
+# get primary DNS server of host
+HOST_DNS1=$(grep -E '^nameserver ' /etc/resolv.conf | head -1 | awk '{print $2}')
+
 # connect keeps running until quit by the user
 # so we will excecute shutdown directly when done
-connect && shutdown
+connect
+shutdown
 
 echo
 echo
