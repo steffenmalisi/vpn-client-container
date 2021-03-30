@@ -1,6 +1,18 @@
 # VPN Client Container
 
-Route your VPN traffic from your host through a container.
+Route your VPN traffic from your host through a container using Split Tunneling.
+
+
+# DISCLAIMER
+
+Even having many advantages, Split Tunneling can be a security risk if your infrastructure connected to the VPN is not protected accordingly.
+
+Therefore it may be forbidden by security guidelines. If you are using your company network, it may be prohibited by company managed rules on your client to change routing configuration and as a consequence this tool doesn't even work.
+
+Please make sure that you fully understand the advantages and drawbacks of Split Tunneling before using this tool:
+* https://en.wikipedia.org/wiki/Split_tunneling
+* https://www.infosecurity-magazine.com/opinions/vpn-split-tunneling/
+
 
 # Prerequisites
 
