@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+cd "$(dirname "$0")"
+
 CONTAINER_NAME=${1:-vpn}
 
 # if you are entcountering the following timeout issue
@@ -21,3 +23,4 @@ multipass launch -vvvv --disk 3G --mem 1G --name $CONTAINER_NAME --cloud-init co
 multipass restart $CONTAINER_NAME
 multipass mount $(pwd)/scripts $CONTAINER_NAME:/opt
 multipass mount $(pwd)/config $CONTAINER_NAME:/home/ubuntu/.config
+multipass mount $(pwd)/log $CONTAINER_NAME:/home/ubuntu/log
