@@ -27,7 +27,7 @@ For Mac you can install it with `brew install multipass`
 
 ## (On a Mac) Install coreutils
 
-The connect script needs `gsed` and `greadlink` to be available as binaries from your Terminal.
+The connect script needs `gsed`, `greadlink` and `gdate` to be available as binaries from your Terminal.
 
 You can install them with
 ```bash

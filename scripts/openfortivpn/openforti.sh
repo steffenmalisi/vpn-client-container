@@ -16,7 +16,7 @@ COLOR_DEFAULT="\e[39m"
 RESET_CONSOLE_LINE="\r\033[K"
 
 function log() {
-  echo "[$$] $(date) $1 $2" >> $LOG_FILE
+  echo "[$$] $(date '+%F %T:%N') $1 $2" >> $LOG_FILE
 }
 
 function write_connection_config() {

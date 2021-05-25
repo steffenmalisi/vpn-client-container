@@ -61,7 +61,7 @@ COLOR_DEFAULT="\e[39m"
 RESET_CONSOLE_LINE="\r\033[K"
 
 function log() {
-  echo "[$$] $(date) $1 $2" >> $CONNECT_LOG_FILE
+  echo "[$$] $(gdate '+%F %T:%N') $1 $2" >> $CONNECT_LOG_FILE
 }
 
 # ************************************* PRE CHECKS ******************************************
@@ -96,6 +96,15 @@ function check_prerequisites() {
   # greadlink has to be installed
   if ! type "greadlink" >/dev/null 2>&1; then
     echo "greadlink is not available on your system."
+    if [[ "$OSTYPE" =~ ^darwin ]]; then
+      echo "You can install it using 'brew install coreutils'"
+    fi
+    exit 1;
+  fi
+
+  # gdate has to be installed
+  if ! type "gdate" >/dev/null 2>&1; then
+    echo "gdate is not available on your system."
     if [[ "$OSTYPE" =~ ^darwin ]]; then
       echo "You can install it using 'brew install coreutils'"
     fi
@@ -312,14 +321,6 @@ function remove_container_dns(){
 # ************************************** CONNECT ********************************************
 
 function connect() {
-  touch $CONNECT_SYNC_FILE
-    while true
-  do
-    sleep 10
-  done
-}
-
-function connect2() {
   echo -en "$RESET_CONSOLE_LINE"
   #rm -f $CONNECT_LOG_FILE
   log "DEBUG" "Let's connect..."
