@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 
-cd "$(dirname "$0")"
+# greadlink has to be installed
+if ! type "greadlink" >/dev/null 2>&1; then
+  echo "greadlink is not available on your system."
+  if [[ "$OSTYPE" =~ ^darwin ]]; then
+    echo "You can install it using 'brew install coreutils'"
+  fi
+  exit 1;
+fi
+
+cd "$(dirname "$(greadlink -f "$0")")"
 
 . config/.net.cfg
 
@@ -89,15 +98,6 @@ function check_prerequisites() {
     echo "gsed is not available on your system."
     if [[ "$OSTYPE" =~ ^darwin ]]; then
       echo "You can install it using 'brew install gsed'"
-    fi
-    exit 1;
-  fi
-
-  # greadlink has to be installed
-  if ! type "greadlink" >/dev/null 2>&1; then
-    echo "greadlink is not available on your system."
-    if [[ "$OSTYPE" =~ ^darwin ]]; then
-      echo "You can install it using 'brew install coreutils'"
     fi
     exit 1;
   fi
@@ -326,12 +326,12 @@ function connect() {
   log "DEBUG" "Let's connect..."
   touch $CONNECT_SYNC_FILE
   multipass exec $CONTAINER_NAME openforti connect
-  for i in {1..10}; do
+  for i in {1..5}; do
     if ! multipass exec $CONTAINER_NAME openforti status; then
       echo -en "$RESET_CONSOLE_LINE"
       echo -n "Waiting for connection $i"
       status="Connecting"
-      sleep 2
+      sleep 1
     else
       status="Connected"
       break
