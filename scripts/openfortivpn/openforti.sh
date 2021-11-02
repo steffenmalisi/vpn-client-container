@@ -48,9 +48,12 @@ function establish_connection() {
 }
 
 function second_factor() {
-  echo -n "You may now have to check your second authentication factor"
-  sleep 10;
-  echo -en "$RESET_CONSOLE_LINE"
+  for (( i=0; i<$TWO_F_TIMEOUT; i++ )); do
+    echo -en "$RESET_CONSOLE_LINE"
+    REM="$(($TWO_F_TIMEOUT-$i))"
+    echo -n "Please check your second factor within $REM seconds"
+    sleep 1
+  done
 }
 
 function configure_nat(){
