@@ -73,6 +73,7 @@ VPN_GW="my-vpn-gateway-host:443"
 GWCERT_HASH="public key hash"
 CONNECT_CONFIG="any pppd config"
 LOG_FILE=$HOME/openforti.log
+TWO_F_TIMEOUT=15
 ```
 
 ## 2. Run the installer script
