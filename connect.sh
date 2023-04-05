@@ -163,8 +163,9 @@ function pre_check(){
 
 pre_check
 
+LOGGED_IN_USER=$(logname)
 CONTAINER_NAME=${1:-vpn}
-CONTAINER_INFO=$(multipass info $CONTAINER_NAME 2>/dev/null || echo "State: NA")
+CONTAINER_INFO=$(sudo -u $LOGGED_IN_USER multipass info $CONTAINER_NAME 2>/dev/null || echo "State: NA")
 CONTAINER_STATE=$(echo "$CONTAINER_INFO" | grep State | awk '{print $2}')
 # get real resolv.conf file of host
 REALRESOLVCONF=$(greadlink -f /etc/resolv.conf)
@@ -179,14 +180,14 @@ case $CONTAINER_STATE in
     ;;
   Stopped)
     log "DEBUG" "Starting multipass container"
-    multipass start $CONTAINER_NAME
+    sudo -u $LOGGED_IN_USER multipass start $CONTAINER_NAME
     log "DEBUG" "Multipass container started"
     ;;
   *)
     ;;
 esac
 
-CONTAINER_IP=$(multipass info $CONTAINER_NAME | grep IPv4 | awk '{print $2}')
+CONTAINER_IP=$(sudo -u $LOGGED_IN_USER multipass info $CONTAINER_NAME | grep IPv4 | awk '{print $2}')
 
 # ********************************* HOST CONFIGURATION **************************************
 
@@ -267,7 +268,7 @@ function add_hosts() {
   for host in ${VPN_HOSTS[@]}; do
     log "DEBUG" "Check for host $host"
     if ! grep -q "$host" $REALETCHOSTS; then
-      ipv4=$(multipass exec $CONTAINER_NAME dig +noall +answer +yaml $host | grep -E ' A ' | awk '{print $6}')
+      ipv4=$(sudo -u $LOGGED_IN_USER multipass exec $CONTAINER_NAME dig +noall +answer +yaml $host | grep -E ' A ' | awk '{print $6}')
       if [ -n "$ipv4" ]; then
         echo "$ipv4 $host" | sudo tee -a "$REALETCHOSTS"
         log "DEBUG" "Added $ipv4 $host"
@@ -290,31 +291,31 @@ function remove_hosts() {
 # ****************************** CONTAINER CONFIGURATION ************************************
 
 function add_container_routes(){
-  multipass exec $CONTAINER_NAME -- sudo route -n add -host $HOST_DNS1 gw 192.168.64.1 >> $CONNECT_LOG_FILE 2>&1
-  log "DEBUG" "Added route within the container to still resolve the hosts privary DNS $HOST_DNS1 even after connection to VPN"
+  sudo -u $LOGGED_IN_USER multipass exec $CONTAINER_NAME -- sudo route -n add -host $HOST_DNS1 gw 192.168.64.1 >> $CONNECT_LOG_FILE 2>&1
+  log "DEBUG" "Added route within the container to still resolve the hosts primary DNS $HOST_DNS1 even after connection to VPN"
 }
 
 function remove_container_routes(){
-  multipass exec $CONTAINER_NAME -- sudo route -n delete -host $HOST_DNS1 gw 192.168.64.1 >> $CONNECT_LOG_FILE 2>&1
+  sudo -u $LOGGED_IN_USER multipass exec $CONTAINER_NAME -- sudo route -n delete -host $HOST_DNS1 gw 192.168.64.1 >> $CONNECT_LOG_FILE 2>&1
   log "DEBUG" "Removed previously set routes within the container"
 }
 
 function add_container_dns(){
   log "DEBUG" "Setting the host DNS $HOST_DNS1 as the primary DNS server for the container"
-  multipass exec $CONTAINER_NAME -- sudo mv -f /etc/dnsmasq.d/server.conf /etc/dnsmasq.d/server.conf.bak >> $CONNECT_LOG_FILE 2>&1
-  multipass exec $CONTAINER_NAME -- bash -c "echo 'server=$HOST_DNS1' | sudo tee 1> /dev/null /etc/dnsmasq.d/server.conf" >> $CONNECT_LOG_FILE 2>&1
-  multipass exec $CONTAINER_NAME -- sudo systemctl restart dnsmasq >> $CONNECT_LOG_FILE 2>&1
+  sudo -u $LOGGED_IN_USER multipass exec $CONTAINER_NAME -- sudo mv -f /etc/dnsmasq.d/server.conf /etc/dnsmasq.d/server.conf.bak >> $CONNECT_LOG_FILE 2>&1
+  sudo -u $LOGGED_IN_USER multipass exec $CONTAINER_NAME -- bash -c "echo 'server=$HOST_DNS1' | sudo tee 1> /dev/null /etc/dnsmasq.d/server.conf" >> $CONNECT_LOG_FILE 2>&1
+  sudo -u $LOGGED_IN_USER multipass exec $CONTAINER_NAME -- sudo systemctl restart dnsmasq >> $CONNECT_LOG_FILE 2>&1
   log "DEBUG" "Done"
 }
 
 function remove_container_dns(){
-  if ! multipass exec $CONTAINER_NAME -- bash -c "test -f /etc/dnsmasq.d/server.conf.bak"; then
+  if ! sudo -u $LOGGED_IN_USER multipass exec $CONTAINER_NAME -- bash -c "test -f /etc/dnsmasq.d/server.conf.bak"; then
     log "DEBUG" "No backup file /etc/dnsmasq.d/server.conf.bak in container exists"
     return 0
   fi
   log "DEBUG" "Rolling back the container DNS configuration to previous state"
-  multipass exec $CONTAINER_NAME -- sudo mv -f /etc/dnsmasq.d/server.conf.bak /etc/dnsmasq.d/server.conf
-  multipass exec $CONTAINER_NAME -- sudo systemctl restart dnsmasq
+  sudo -u $LOGGED_IN_USER multipass exec $CONTAINER_NAME -- sudo mv -f /etc/dnsmasq.d/server.conf.bak /etc/dnsmasq.d/server.conf
+  sudo -u $LOGGED_IN_USER multipass exec $CONTAINER_NAME -- sudo systemctl restart dnsmasq
   log "DEBUG" "Done"
 }
 
@@ -325,9 +326,9 @@ function connect() {
   #rm -f $CONNECT_LOG_FILE
   log "DEBUG" "Let's connect..."
   touch $CONNECT_SYNC_FILE
-  multipass exec $CONTAINER_NAME openforti connect
+  sudo -u $LOGGED_IN_USER multipass exec $CONTAINER_NAME openforti connect
   for i in {1..5}; do
-    if ! multipass exec $CONTAINER_NAME openforti status; then
+    if ! sudo -u $LOGGED_IN_USER multipass exec $CONTAINER_NAME openforti status; then
       echo -en "$RESET_CONSOLE_LINE"
       echo -n "Waiting for connection $i"
       status="Connecting"
@@ -375,9 +376,9 @@ function shutdown() {
     remove_container_routes
     remove_container_dns
   fi
-  multipass exec $CONTAINER_NAME openforti stop
+  sudo -u $LOGGED_IN_USER multipass exec $CONTAINER_NAME openforti stop
   if [ "$SHUTDOWN_CONTAINER" = "true" ]; then
-    multipass stop $CONTAINER_NAME
+    sudo -u $LOGGED_IN_USER multipass stop $CONTAINER_NAME
   fi
   echo -en "$RESET_CONSOLE_LINE"
   echo -en "${COLOR_RED}Disconnected${COLOR_DEFAULT}"
@@ -427,7 +428,6 @@ function check_previous_graceful_shutdown(){
 trap "shutdown && exit;" SIGINT SIGTERM
 
 check_previous_graceful_shutdown
-
 # get primary DNS server of host
 HOST_DNS1=$(grep -E '^nameserver ' /etc/resolv.conf | head -1 | awk '{print $2}')
 
