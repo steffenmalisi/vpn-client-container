@@ -1,7 +1,7 @@
 #cloud-config
 package_update: true
 package_upgrade: true
-package_reboot_if_required: true
+package_reboot_if_required: false
 packages:
   - net-tools
   - openfortivpn
@@ -22,7 +22,7 @@ runcmd:
 
   - echo "**** Setup DNSMasq *****"
   - DNS1=$(grep -E '^nameserver ' /etc/resolv.conf | head -1 | awk '{print $2}') && echo "server=192.168.64.1" | sudo tee /etc/dnsmasq.d/server.conf
-  - IPv4=$(ifconfig enp0s2 | grep -E 'inet ' | awk '{print $2}') && printf "listen-address=127.0.0.1\nlisten-address=$IPv4\n" | sudo tee -a /etc/dnsmasq.conf
+  - IPv4=$(ifconfig ens3 | grep -E 'inet ' | awk '{print $2}') && printf "listen-address=127.0.0.1\nlisten-address=$IPv4\n" | sudo tee -a /etc/dnsmasq.conf
   - echo "conf-dir=/etc/dnsmasq.d/,*.conf" | sudo tee -a /etc/dnsmasq.conf
   - echo "no-resolv" | sudo tee -a /etc/dnsmasq.conf
 

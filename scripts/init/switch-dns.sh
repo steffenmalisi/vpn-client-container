@@ -11,7 +11,7 @@ set -eu
 echo "Switch from systemd-resolved to DNSMasq"
 sudo rm /etc/resolv.conf
 echo 'nameserver 127.0.0.1' | sudo tee /etc/resolv.conf >/dev/null 2>&1
-sudo systemd-resolve --flush-caches
+sudo resolvectl flush-caches
 sudo systemctl disable systemd-resolved.service >/dev/null 2>&1
 sudo systemctl stop systemd-resolved >/dev/null 2>&1
 sudo systemctl restart dnsmasq
