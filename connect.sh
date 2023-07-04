@@ -37,6 +37,7 @@ Options:
 CONNECT_SYNC_FILE=".connect"
 CONNECT_LOG_FILE="log/connect.log"
 MACOS_DNS_BACKUP_FILE="macos_dns.conf.bak"
+ADDITIONAL_ROUTES_FILE="additional_routes.conf.bak"
 ADD_HOSTS=false
 SHUTDOWN_CONTAINER=false
 DISABLE_HOST_DNS=false
@@ -191,22 +192,55 @@ CONTAINER_IP=$(sudo -u $LOGGED_IN_USER multipass info $CONTAINER_NAME | grep IPv
 
 # ********************************* HOST CONFIGURATION **************************************
 
+function getIpV4s(){
+  sudo -u $LOGGED_IN_USER multipass exec $CONTAINER_NAME dig +noall +answer +yaml $1 | grep -E ' A ' | awk '{print $6}'
+}
+
 function add_host_routes(){
   log "DEBUG" "Adding routes on your host targeting $CONTAINER_IP"
-  for netmask in ${VPN_NETMASKS[@]}
-  do
+  netmasks=("$@")
+  for netmask in ${netmasks[@]}; do
     route -nq add -net $netmask $CONTAINER_IP >> $CONNECT_LOG_FILE 2>&1
     log "DEBUG" "Route $netmask $CONTAINER_IP added"
   done
 }
 
 function remove_host_routes(){
-  log "DEBUG" "Delete routes configured in .net.cfg"
-  for netmask in ${VPN_NETMASKS[@]}
-  do
+  log "DEBUG" "Delete routes"
+  netmasks=("$@")
+  for netmask in ${netmasks[@]}; do
     route -nq delete -net $netmask $CONTAINER_IP >> $CONNECT_LOG_FILE 2>&1
     log "DEBUG" "Route $netmask $CONTAINER_IP deleted"
   done
+}
+
+function add_additional_host_routes(){
+  if [ -z "$VPN_HOSTS" ]; then
+    return 0;
+  fi
+  log "DEBUG" "Add additional host routes"
+  for host in ${VPN_HOSTS[@]}; do
+    log "DEBUG" "Get IP for $host"
+    ipv4s=$(getIpV4s $host)
+    if [ -n "$ipv4s" ]; then
+      ipv4s=($ipv4s)
+      for ipv4 in ${ipv4s[@]}; do
+        ADDITIONAL_NETMASKS+=("$ipv4/32")
+      done
+      echo "${ADDITIONAL_NETMASKS[@]}" > $ADDITIONAL_ROUTES_FILE
+      add_host_routes "${ADDITIONAL_NETMASKS[@]}"
+    else
+      log "DEBUG" "No IPv4 for host $host could be found. Skipping..."
+    fi
+  done
+}
+
+function remove_additional_host_routes(){
+  if ! test -f $ADDITIONAL_ROUTES_FILE; then
+    log "DEBUG" "No additional routes to remove"
+    return 0
+  fi
+  remove_host_routes $(cat $ADDITIONAL_ROUTES_FILE) && rm $ADDITIONAL_ROUTES_FILE
 }
 
 function add_macos_host_dns(){
@@ -268,7 +302,7 @@ function add_hosts() {
   for host in ${VPN_HOSTS[@]}; do
     log "DEBUG" "Check for host $host"
     if ! grep -q "$host" $REALETCHOSTS; then
-      ipv4=$(sudo -u $LOGGED_IN_USER multipass exec $CONTAINER_NAME dig +noall +answer +yaml $host | grep -E ' A ' | awk '{print $6}')
+      ipv4=$(getIpV4s $host)
       if [ -n "$ipv4" ]; then
         echo "$ipv4 $host" | sudo tee -a "$REALETCHOSTS"
         log "DEBUG" "Added $ipv4 $host"
@@ -280,7 +314,7 @@ function add_hosts() {
 }
 
 function remove_hosts() {
-  if ! test -f $MACOS_DNS_BACKUP_FILE; then
+  if ! test -f "$REALETCHOSTS.bak"; then
     log "DEBUG" "No backup file of hosts /etc/hosts file exists"
     return 0
   fi
@@ -348,7 +382,8 @@ function connect() {
   else
     echo -en "$COLOR_GREEN$status$COLOR_DEFAULT"
   fi
-  add_host_routes
+  add_host_routes "${VPN_NETMASKS[@]}"
+  add_additional_host_routes
   if [ "$ADD_HOSTS" = "true" ]; then
     add_hosts
   fi
@@ -367,7 +402,8 @@ function connect() {
 function shutdown() {
   echo -en "$RESET_CONSOLE_LINE"
   echo -en "Shutting down"
-  remove_host_routes
+  remove_host_routes "${VPN_NETMASKS[@]}"
+  remove_additional_host_routes
   if [ "$ADD_HOSTS" = "true" ]; then
     remove_hosts
   fi
@@ -407,7 +443,8 @@ function check_previous_graceful_shutdown(){
     echo "Please always exit the script with CTRL-C to that it can cleanup its resources"
     echo -e "${COLOR_DEFAULT}"
     kill_other_instance_if_running
-    remove_host_routes
+    remove_host_routes "${VPN_NETMASKS[@]}"
+    remove_additional_host_routes
     if test -f $MACOS_DNS_BACKUP_FILE; then
       remove_macos_host_dns
       remove_container_routes

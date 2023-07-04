@@ -44,19 +44,24 @@ You need to provide two files within the `config` folder
 ### 1.1 .net.cfg
 Place a file named `.net.cfg` into the `config` folder. You have the following configuration options of your network:
 ```bash
-# VPN_NETMASKS (mandatory) contains the CIDRs of your VPN. It is used to route traffic for these CIDRs through the container
+# VPN_NETMASKS (mandatory) contains the CIDRs of your VPN.
+# It is used to route traffic for these CIDRs through the container
 VPN_NETMASKS=(
   10.0.0.0/16
   10.1.0.0/16
 )
 
-# VPN_DOMAINS (mandatory, optional if using the -d option of the connect script). This variable is used to route DNS queries for these domains to your VPN
+# VPN_DOMAINS (mandatory, but optional if using the -d option of the connect script).
+# This variable is used to route DNS queries for these domains to your VPN
 VPN_DOMAINS=(
   vpn-domain.de
   internal.company.com
 )
 
-# VPN_HOSTS (optional, mandatory if using the -a option of the connect script). The VPN Hosts are used to update your /etc/hosts file.
+# VPN_HOSTS (optional, but mandatory if using the -a option of the connect script).
+# You can put any single host here, that is not covered by VPN_NETMASKS.
+# The script will resolve the IP Adresses and route them trough your VPN.
+# Additionally, if you use the -a option these hosts are written to your /etc/hosts file.
 VPN_HOSTS=(
   any-host.of.mycompany.com
   vpnhost.vpn-domain.de
